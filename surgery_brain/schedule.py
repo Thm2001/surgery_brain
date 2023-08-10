@@ -42,9 +42,11 @@ class Schedule():
                    od.week as '星期',
                    mti.head_medical_unit  as '所属医疗组',
                    od.affiliated_department as '所属科室',
+                   mti2.head_medical_unit as '第二医疗组',
                    od.remarks as '备注'
             from operating_day od
             left join medical_team_info mti on mti.name_medical_unit = od.subordinate_medical_unit 
+            left join medical_team_info mti2 on mti2.name_medical_unit = od.second_medical_team 
             where od.week = '{}'
               and od.half_year = '{}'
             """.format(strWeekday, strHalfYear)
@@ -55,9 +57,9 @@ class Schedule():
             print(temp_data)
             self._dfBlock = pd.DataFrame(temp_data)
 
-            self.dfBlock = pd.DataFrame(columns=['手术间编号', '医生', '科室'])
-            self.dfBlock[['手术间编号', '医生', '科室']] = self._dfBlock[
-                ['手术间编号', '所属医疗组', '所属科室']].copy()
+            self.dfBlock = pd.DataFrame(columns=['手术间编号', '医生', '科室', '次排医生'])
+            self.dfBlock[['手术间编号', '医生', '科室', '次排医生']] = self._dfBlock[
+                ['手术间编号', '所属医疗组', '所属科室', '第二医疗组']].copy()
             self.dfBlock.reset_index(drop=True, inplace=True)
 
             # TODO:为何只对胸外科的医生进行编码
@@ -98,6 +100,16 @@ class Schedule():
 
         # 如果数据库里没有名为“当天手术日表终版”的表格，说明护士长还没有点击确认当天手术日分配
         self.dfBlock = pd.read_sql_query("select * from 当天手术日表终版", self.engineBlock)
+        new_rows = []
+        for index, row in self.dfBlock.iterrows():
+            department = row['科室']
+            if row['医生'] is not None:
+                new_row = {'手术间编号': row['手术间编号'], '科室': department, '医生': row['医生'], '是否优先': 1}
+                new_rows.append(new_row)
+            if row['次排医生'] is not None:
+                new_row = {'手术间编号': row['手术间编号'], '科室': department, '医生': row['次排医生'], '是否优先': 0}
+                new_rows.append(new_row)
+        self.dfBlock = pd.DataFrame(new_rows)
 
         listDoctorHavingBlock = self.dfBlock['医生'].values.tolist()
         for doctor in self.dfBlock['医生'].unique():
