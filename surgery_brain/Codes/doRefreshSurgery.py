@@ -13,7 +13,7 @@ set whether_operating = '',
     arrange_operating_room = ''
 where pseudo_operation_data like '{}%'
                 """.format(fresh_date)
-    conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '172.31.123.200'), user=os.environ.get('MYSQL_USERNAME', 'root'), password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'), database=os.environ.get('MYSQL_DATABASE', 's5'), charset="utf8")
+    conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'), user=os.environ.get('MYSQL_USERNAME', 'root'), password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'), database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
     cursor = conn.cursor()
     cursor.execute(sql)
     conn.commit()

@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from common.sql_util import *
 import os
 import pymysql
+import logging
 
 pd.set_option("display.max_columns", None)
 
@@ -39,14 +40,17 @@ TABLE_HEADER = [
 
 def doGetSurgery(fileName):
     df = pd.read_csv(fileName + '.csv', dtype=str)
-    print('表头：')
-    print(df.columns)
-    print('\n表格：')
-    print(df)
+    # print('表头：')
+    # print(df.columns)
+    # print('\n表格：')
+    # print(df)
     return df
 
 
 def doPreprocessSurgery(df):
+    logger = logging.getLogger("django.db.backends")
+    logger.info("vvvvvvvvvvvvvvvvvvvvv")
+
     newdf = pd.DataFrame(columns=TABLE_HEADER)
     newdf[['拟手术日期', '申请号', '住院流水号', '住院号', '患者姓名',
            '手术类别', '主刀医生', '申请科室', '手术名称', '手术编码',
@@ -70,8 +74,10 @@ def doPreprocessSurgery(df):
     newdf.drop_duplicates(subset=['申请号'], keep='first', inplace=True, ignore_index=True)
     # 删除申请号重复的行
 
-    print('经过预处理的表格：111111111111')
-    print(newdf)
+    # print('经过预处理的表格：111111111111')
+    # print(newdf)
+    logger.info(newdf)
+
     return newdf
 
 
@@ -122,12 +128,18 @@ from special_surgical_restraint ssr
     for i in range(len(df)):
         if df.loc[i, '手术编码'] in listSurgeryCode:
             df.loc[i, '是否为特殊手术'] = '是'
-    print('经过预处理的表格：22222222222222')
-    print(df)
+    # print('经过预处理的表格：22222222222222')
+    # print
+    logger = logging.getLogger("django.db.backends")
+    logger.info("cccccccccccc")
+    logger.info(df)
     return df
 
 
 def doCheckDept(df):
+    logger = logging.getLogger("django.db.backends")
+    logger.info("1111ss11111111111")
+    logger.info(df)
     sql = """
     select 
        di.doctor as '医生',
@@ -153,10 +165,18 @@ from doctor_info di
     df.reset_index(drop=True, inplace=True)
     print('经过预处理的表格：33333333333333333')
     print(df)
+    logger = logging.getLogger("django.db.backends")
+    logger.info("111111111111111")
+
+    logger.info(df)
     return df
 
 
 def doGenerateAdditionalData(df):
+    logger = logging.getLogger("django.db.backends")
+    logger.info("1222222222222")
+
+    logger.info(df)
     # 添加“抢单失败次数”字段
     # 分别以0.6,0.2,0.1,0.05,0.05的概率填0,1,2,3,4
     df['抢单失败次数'] = np.random.choice(a=[0, 1, 2, 3, 4], size=len(df),
@@ -170,7 +190,7 @@ def doGenerateAdditionalData(df):
     for i in range(len(df)):
         tempTime = np.random.randint(startTimeStamp, endTimeStamp)
         tempTime = time.localtime(tempTime)
-        print(tempTime)
+        # print(tempTime)
         tempTime = time.strftime("%Y-%m-%d %H:%M:%S", tempTime)
         df.loc[i, '提交申请时间'] = tempTime
 
@@ -185,7 +205,7 @@ def doGenerateAdditionalData(df):
         df[tempStr] = np.random.choice(a=['是', '否'], size=len(df), p=[1, 0])
 
     print('经过预处理的表格：44444444444444444')
-    print(df)
+    # print(df)
     return df
 
 
@@ -255,20 +275,20 @@ from surgicalapplicationinfo
 where pseudo_operation_data like '{}%'
     """.format(date)
     data = pd.DataFrame(query_all_dict(sql), dtype=str)
+    logger = logging.getLogger("django.db.backends")
 
     conn = create_engine('mysql://' +
                          os.environ.get('MYSQL_USERNAME', 'root') +
                          ':' +
                          os.environ.get('MYSQL_PASSWORD', 'C2matica!') +
                          '@' +
-                         os.environ.get('MYSQL_HOST', '172.31.123.200') +':'+os.environ.get('MYSQL_PORT', '3306')+'/' +
-                         os.environ.get('MYSQL_DATABASE', 's5') +
+                         os.environ.get('MYSQL_HOST', '192.170.201.161') +':'+os.environ.get('MYSQL_PORT', '3306')+'/' +
+                         os.environ.get('MYSQL_DATABASE', 'abc') +
                          '?charset=utf8')
-
-
     df.columns = ['pseudo_operation_data','application_number','hospital_serial_number','admission_number','patient_name','operation_type','surgeon','doctor_department','apply_department','operation_name','surgical_coding','estimated_duration_operation','table_sequence','mode_anesthesia','whether_operating','whether_special_operation','has_arranged','second_round_scheduling_weight','arrange_operating_room_number','arrange_operating_number','arrange_operating_room','number_failed_order_grabs','submission_time','surgery','robot','interventional_operation','perspective','holmium_laser','select_operating_room1','select_operating_room2','select_operating_room3','select_operating_room4','select_operating_room5','select_operating_room6','select_operating_room7','select_operating_room8','select_operating_room9','select_operating_room10','select_operating_room11','select_operating_room12','select_operating_room13','select_operating_room14','select_operating_room15','select_operating_room16','select_operating_room17','select_operating_room18','select_operating_room19','select_operating_room20','select_operating_room21','select_operating_room22','select_operating_room23','select_operating_room24','select_operating_room25','select_operating_room26','select_operating_room27','select_operating_room28','select_operating_room29','select_operating_room30']
     if data.size != 0:
         data.to_sql('surgicalapplicationinfo_python', conn, if_exists='replace', index=False)
+    logger.info(df.shape)
     df.to_sql('surgicalapplicationinfo_python', conn, if_exists='replace', index=False)
     # print(df.columns)
     # conn = sqlite3.connect(db_file)
@@ -307,7 +327,7 @@ def do_import_surgery(date):
             where sip.SURGERY_DATE like '{}%' and (sip.scheduling_state = false or sip.scheduling_state is null)
             and (
                 select di.doctor  from doctor_info di
-                where di.doctor = sip.SURGERY_DR_NAME and di.department = sip.APPLY_DEPT_NAME 
+                where di.doctor = sip.SURGERY_DR_NAME and di.department = sip.APPLY_DEPT_NAME limit 1
             ) is not NULL 
             order by sip.ELECTR_REQUISITION_NO
             """.format(date)

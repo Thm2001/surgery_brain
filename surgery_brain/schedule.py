@@ -8,14 +8,14 @@ from sqlalchemy import create_engine
 from common.sql_util import *
 import pymysql
 import os
-
+import logging
 class Schedule():
     def __init__(self, shedule_date="20220319"):
         self.WEIGHT_SPECIAL_SURGERY = 10
 
         self.date = datetime.datetime.strptime(shedule_date, "%Y-%m-%d")
         self.strf_date = self.date.strftime("%Y-%m-%d")
-        assert self.date.weekday() in [0, 1, 2, 3, 4]
+        # assert self.date.weekday() in [0, 1, 2, 3, 4]
         path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         # self.engineBaseInfo = create_engine('sqlite:////root/project/surgery-brain/surgery_brain/Data/DataBase/BaseInfo.db')
         self.engineBlock = create_engine('sqlite:///'+path+'/surgery_brain/Data/DataBase/Block.db')
@@ -32,8 +32,24 @@ class Schedule():
     def pre_first_schedule(self):
         # step1:确认当天手术日分配,假设护士长不做调整
         if '当天手术日表终版' not in self.__fetch_block_table_names():
-            strWeekday = ['星期一', '星期二', '星期三', '星期四', '星期五'][self.date.weekday()]
+            strWeekday = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][self.date.weekday()]
             strHalfYear = '1-6月' if self.date.month <= 6 else '7-12月'
+
+
+            # 如果是周六周日 需要获取映射,无映射抛异常
+            if "星期六" == strWeekday or strWeekday == "星期日":
+                sql = """
+                            select 
+                                   *
+                            from mapping_date od
+                            where od.date = '{}'
+                            """.format(self.strf_date)
+                temp_data = query_all_dict(sql)
+                mapping_date = pd.DataFrame(temp_data)
+                # print(mapping_date)
+                strWeekday = mapping_date["week"][0]
+
+
 
             sql = """
             select 
@@ -44,17 +60,26 @@ class Schedule():
                    od.affiliated_department as '所属科室',
                    mti2.head_medical_unit as '第二医疗组',
                    od.remarks as '备注'
-            from operating_day od
+            from (SELECT
+                    t.operating_room_number,
+                    t.`week`,
+                    t.half_year,
+                    t.affiliated_department,
+                    t.remarks,
+                    t.second_medical_team,
+                    substring_index( substring_index( t.subordinate_medical_unit, ',', h.help_topic_id + 1 ), ',',- 1 ) AS subordinate_medical_unit
+                FROM operating_day t JOIN mysql.help_topic AS h ON h.help_topic_id < ( char_length( t.subordinate_medical_unit ) - char_length( REPLACE ( t.subordinate_medical_unit, ',', '' ) ) + 1 )
+                ) od
             left join medical_team_info mti on mti.name_medical_unit = od.subordinate_medical_unit 
             left join medical_team_info mti2 on mti2.name_medical_unit = od.second_medical_team 
             where od.week = '{}'
               and od.half_year = '{}'
             """.format(strWeekday, strHalfYear)
-            print('pre_first_schedule:sql------------------')
-            print(sql)
+            # print('pre_first_schedule:sql------------------')
+            # print(sql)
             temp_data = query_all_dict(sql)
-            print('pre_first_schedule:data------------------')
-            print(temp_data)
+            # print('pre_first_schedule:data------------------')
+            # print(temp_data)
             self._dfBlock = pd.DataFrame(temp_data)
 
             self.dfBlock = pd.DataFrame(columns=['手术间编号', '医生', '科室', '次排医生'])
@@ -123,11 +148,11 @@ class Schedule():
                         where surgeon = '{}'
                           and pseudo_operation_data like '{}%'
                         """.format(doctor, self.strf_date)
-            print('do_first_schedule:sql ----------------')
-            print(sql)
+            # print('do_first_schedule:sql ----------------')
+            # print(sql)
             temp_data = query_all_dict(sql)
-            print('do_first_schedule:data ----------------')
-            print(temp_data)
+            # print('do_first_schedule:data ----------------')
+            # print(temp_data)
             listEntry_tmp = []
             for item_data in temp_data:
                 listEntry_tmp.append(tuple(item_data.values()))
@@ -143,7 +168,7 @@ class Schedule():
             listRoomID = self.dfBlock[(self.dfBlock['医生'] == doctor)]['手术间编号'].values.tolist()
             # listRoomID是一个列表，它存储了当前医生所拥有的所有手术间的编号（类型：字符串）
             print('listRoomID--------------------')
-            print(listRoomID)
+            # print(listRoomID)
             TotalnumBlock = listDoctorHavingBlock.count(doctor)
             numBlock = listDoctorHavingBlock.count(doctor)
             # TotalnumBlock和numBlock是两个整数类型变量
@@ -225,10 +250,10 @@ class Schedule():
                     set arrange_operating_room_number = '{}'
                     where application_number = '{}' and pseudo_operation_data like '{}%'
                                     """.format(roomid, listID[i], self.strf_date)
-                    conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '172.31.123.200'),
+                    conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
                                            user=os.environ.get('MYSQL_USERNAME', 'root'),
                                            password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                           database=os.environ.get('MYSQL_DATABASE', 's5'), charset="utf8")
+                                           database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
                     cursor = conn.cursor()
                     cursor.execute(sql)
                     conn.commit()
@@ -261,10 +286,10 @@ class Schedule():
                                     set arrange_operating_room_number = '{}'
                                     where application_number = '{}' and pseudo_operation_data like '{}%'
                                                     """.format(listRoomID[TotalnumBlock - numBlock], listID[i], self.strf_date)
-                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '172.31.123.200'),
+                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
                                        user=os.environ.get('MYSQL_USERNAME', 'root'),
                                        password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                       database=os.environ.get('MYSQL_DATABASE', 's5'), charset="utf8")
+                                       database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 conn.commit()
@@ -285,10 +310,10 @@ class Schedule():
                                                     set arrange_operating_room_number = '{}'
                                                     where application_number = '{}' and pseudo_operation_data like '{}%'
                                                                     """.format(listRoomID[-1], listID[-1], self.strf_date)
-                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '172.31.123.200'),
+                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
                                        user=os.environ.get('MYSQL_USERNAME', 'root'),
                                        password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                       database=os.environ.get('MYSQL_DATABASE', 's5'), charset="utf8")
+                                       database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 conn.commit()
@@ -887,10 +912,10 @@ class Schedule():
                 where pseudo_operation_data like '{}%' and application_number = '{}'  
                                 """.format((weight_j[j]), self.strf_date,
                                         set_j[j])
-            conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '172.31.123.200'),
+            conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
                                    user=os.environ.get('MYSQL_USERNAME', 'root'),
                                    password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                   database=os.environ.get('MYSQL_DATABASE', 's5'), charset="utf8")
+                                   database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
             cursor = conn.cursor()
             cursor.execute(sql)
             conn.commit()
@@ -1048,10 +1073,10 @@ class Schedule():
                                 where pseudo_operation_data like '{}%' and application_number = '{}'  
                                                 """.format((set_k[int(tempName[1])]), self.strf_date,
                                             set_j[int(tempName[0])])
-                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '172.31.123.200'),
+                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
                                        user=os.environ.get('MYSQL_USERNAME', 'root'),
                                        password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                       database=os.environ.get('MYSQL_DATABASE', 's5'), charset="utf8")
+                                       database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 conn.commit()
@@ -1151,20 +1176,24 @@ from operating_room_info
             listRoomInfo_tmp.append(tuple(item_data.values()))
         listRoomInfo = listRoomInfo_tmp
         # listRoomInfo = self.connBaseInfo.execute("select 手术间编号, 所属手术部, 真实名称 from 手术间表 ").fetchall()
+        logger = logging.getLogger("django.db.backends")
         for id, dept, room in listRoomInfo:
             # SQL = "update 手术申请信息 set 是否已安排 = '是', 安排手术部 = '%s', 安排手术间 = '%s' " \
             #       "where 安排手术间编号 = '%s' and 拟手术日期 = '%s'" % (dept, room, id, self.strf_date)
             # self.connSurgery.execute(SQL)
             # self.connSurgery.commit()
+            # logger.info(dept)
+            # logger.info(id)
+            # logger.info(self.strf_date)
             sql = """
                 update surgicalapplicationinfo_python
             set has_arranged = '是', arrange_operating_number = '{}', arrange_operating_room = '{}' 
             where arrange_operating_room_number = '{}' and pseudo_operation_data like '{}%' 
                             """.format(dept, room, id, self.strf_date)
-            conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '172.31.123.200'),
+            conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
                                    user=os.environ.get('MYSQL_USERNAME', 'root'),
                                    password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                   database=os.environ.get('MYSQL_DATABASE', 's5'), charset="utf8")
+                                   database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
             cursor = conn.cursor()
             cursor.execute(sql)
             conn.commit()

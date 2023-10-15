@@ -78,10 +78,10 @@ WSGI_APPLICATION = 'c2matica_py_server.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('MYSQL_DATABASE', 's5'),
+        'NAME': os.environ.get('MYSQL_DATABASE', 'abc'),
         'USER': os.environ.get('MYSQL_USERNAME', 'root'),
         'PASSWORD': os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-        'HOST': os.environ.get('MYSQL_HOST', '172.31.123.200'),
+        'HOST': os.environ.get('MYSQL_HOST', '192.170.201.161'),
         'PORT': os.environ.get('MYSQL_PORT', '3306'),
         'OPTIONS': {'charset': 'utf8mb4'}
     }
@@ -134,7 +134,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'console': {
-            'level': os.environ.get('LOG_LEVEL', 'DEBUG'),
+            'level': os.environ.get('LOG_LEVEL', 'INFO'),
             'class': 'logging.StreamHandler',
         },
     },
@@ -142,7 +142,7 @@ LOGGING = {
         'django.db.backends': {
             'handlers': ['console'],
             'propagate': True,
-            'level': os.environ.get('LOG_LEVEL', 'DEBUG'),
+            'level': os.environ.get('LOG_LEVEL', 'INFO'),
         },
     }
 }
