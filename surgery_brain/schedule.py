@@ -5,6 +5,8 @@ import datetime
 import pulp
 import sqlite3
 from sqlalchemy import create_engine
+
+from c2matica_py_server.settings import MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DATABASE
 from common.sql_util import *
 import pymysql
 import os
@@ -75,11 +77,11 @@ class Schedule():
             where od.week = '{}'
               and od.half_year = '{}'
             """.format(strWeekday, strHalfYear)
-            # print('pre_first_schedule:sql------------------')
-            # print(sql)
+            print('pre_first_schedule:sql------------------')
+            print(sql)
             temp_data = query_all_dict(sql)
-            # print('pre_first_schedule:data------------------')
-            # print(temp_data)
+            print('pre_first_schedule:data------------------')
+            print(temp_data)
             self._dfBlock = pd.DataFrame(temp_data)
 
             self.dfBlock = pd.DataFrame(columns=['手术间编号', '医生', '科室', '次排医生'])
@@ -87,13 +89,13 @@ class Schedule():
                 ['手术间编号', '所属医疗组', '所属科室', '第二医疗组']].copy()
             self.dfBlock.reset_index(drop=True, inplace=True)
 
-            # TODO:为何只对胸外科的医生进行编码
-            LetterList = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-            for i in range(len(self.dfBlock)):
-                # 修改胸外科的主刀医生为ABCDEFG……
-                if self.dfBlock.loc[i, '科室'] == '胸外科':
-                    self.dfBlock.loc[i, '医生'] = LetterList[0]
-                    LetterList.pop(0)
+            # # TODO:为何只对胸外科的医生进行编码
+            # LetterList = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+            # for i in range(len(self.dfBlock)):
+            #     # 修改胸外科的主刀医生为ABCDEFG……
+            #     if self.dfBlock.loc[i, '科室'] == '胸外科':
+            #         self.dfBlock.loc[i, '医生'] = LetterList[0]
+            #         LetterList.pop(0)
 
             # 向数据库写入名为“当天手术日表初版”的表格
             self.dfBlock.to_sql('当天手术日表初版', self.connBlock, if_exists='replace', index=False)
@@ -148,11 +150,11 @@ class Schedule():
                         where surgeon = '{}'
                           and pseudo_operation_data like '{}%'
                         """.format(doctor, self.strf_date)
-            # print('do_first_schedule:sql ----------------')
-            # print(sql)
+            print('do_first_schedule:sql ----------------')
+            print(sql)
             temp_data = query_all_dict(sql)
-            # print('do_first_schedule:data ----------------')
-            # print(temp_data)
+            print('do_first_schedule:data ----------------')
+            print(temp_data)
             listEntry_tmp = []
             for item_data in temp_data:
                 listEntry_tmp.append(tuple(item_data.values()))
@@ -168,7 +170,7 @@ class Schedule():
             listRoomID = self.dfBlock[(self.dfBlock['医生'] == doctor)]['手术间编号'].values.tolist()
             # listRoomID是一个列表，它存储了当前医生所拥有的所有手术间的编号（类型：字符串）
             print('listRoomID--------------------')
-            # print(listRoomID)
+            print(listRoomID)
             TotalnumBlock = listDoctorHavingBlock.count(doctor)
             numBlock = listDoctorHavingBlock.count(doctor)
             # TotalnumBlock和numBlock是两个整数类型变量
@@ -250,10 +252,10 @@ class Schedule():
                     set arrange_operating_room_number = '{}'
                     where application_number = '{}' and pseudo_operation_data like '{}%'
                                     """.format(roomid, listID[i], self.strf_date)
-                    conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
-                                           user=os.environ.get('MYSQL_USERNAME', 'root'),
-                                           password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                           database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
+                    conn = pymysql.connect(host=MYSQL_HOST,
+                                           user=MYSQL_USERNAME,
+                                           password=MYSQL_PASSWORD,
+                                           database=MYSQL_DATABASE, charset="utf8")
                     cursor = conn.cursor()
                     cursor.execute(sql)
                     conn.commit()
@@ -286,10 +288,10 @@ class Schedule():
                                     set arrange_operating_room_number = '{}'
                                     where application_number = '{}' and pseudo_operation_data like '{}%'
                                                     """.format(listRoomID[TotalnumBlock - numBlock], listID[i], self.strf_date)
-                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
-                                       user=os.environ.get('MYSQL_USERNAME', 'root'),
-                                       password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                       database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
+                conn = pymysql.connect(host=MYSQL_HOST,
+                                       user=MYSQL_USERNAME,
+                                       password=MYSQL_PASSWORD,
+                                       database=MYSQL_DATABASE, charset="utf8")
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 conn.commit()
@@ -310,10 +312,10 @@ class Schedule():
                                                     set arrange_operating_room_number = '{}'
                                                     where application_number = '{}' and pseudo_operation_data like '{}%'
                                                                     """.format(listRoomID[-1], listID[-1], self.strf_date)
-                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
-                                       user=os.environ.get('MYSQL_USERNAME', 'root'),
-                                       password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                       database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
+                conn = pymysql.connect(host=MYSQL_HOST,
+                                       user=MYSQL_USERNAME,
+                                       password=MYSQL_PASSWORD,
+                                       database=MYSQL_DATABASE, charset="utf8")
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 conn.commit()
@@ -349,7 +351,6 @@ class Schedule():
                    arrange_operating_room_number as '安排手术间编号',
                    arrange_operating_number as '安排手术部',
                    arrange_operating_room as '安排手术间',
-                   number_failed_order_grabs as '抢单失败次数',
                    submission_time as '提交申请时间',
                    surgery as '是否日间手术',
                    robot as '机器人',
@@ -444,7 +445,6 @@ class Schedule():
                            arrange_operating_room_number as '安排手术间编号',
                            arrange_operating_number as '安排手术部',
                            arrange_operating_room as '安排手术间',
-                           number_failed_order_grabs as '抢单失败次数',
                            submission_time as '提交申请时间',
                            surgery as '是否日间手术',
                            robot as '机器人',
@@ -509,7 +509,6 @@ class Schedule():
                                    arrange_operating_room_number as '安排手术间编号',
                                    arrange_operating_number as '安排手术部',
                                    arrange_operating_room as '安排手术间',
-                                   number_failed_order_grabs as '抢单失败次数',
                                    submission_time as '提交申请时间',
                                    surgery as '是否日间手术',
                                    robot as '机器人',
@@ -580,7 +579,6 @@ class Schedule():
                                            arrange_operating_room_number as '安排手术间编号',
                                            arrange_operating_number as '安排手术部',
                                            arrange_operating_room as '安排手术间',
-                                           number_failed_order_grabs as '抢单失败次数',
                                            submission_time as '提交申请时间',
                                            surgery as '是否日间手术',
                                            robot as '机器人',
@@ -747,10 +745,10 @@ class Schedule():
             doctor = df1stSurgery.loc[i, '主刀医生']
             dept = df1stSurgery.loc[i, '医生科室']
 
-            startTime_k[set_k.index(str(roomID))] += float(time) + 0.5  # 接台时间也考虑在内！
+            startTime_k[set_k.index(roomID)] += float(time) + 0.5  # 接台时间也考虑在内！
             if doctor in set_i:
-                is_ik[set_i.index(doctor), set_k.index(str(roomID))] = 1
-            is_mk[set_m.index(dept), set_k.index(str(roomID))] = 1
+                is_ik[set_i.index(doctor), set_k.index(roomID)] = 1
+            is_mk[set_m.index(dept), set_k.index(roomID)] = 1
 
         # 根据二轮手术信息和两个约束信息表计算constr_jk
         for j in range(len(df2ndSurgery)):
@@ -765,10 +763,14 @@ class Schedule():
             else:
                 # 如果是普通手术，则检索手术间约束表
                 dept = df2ndSurgery.loc[j, '医生科室']
-                print(dept)
-                print(df2ndSurgery.loc[j, '主刀医生'])
-                constr_jk[j, :] = \
-                    list(dfConstrInfo[dfConstrInfo['科室'] == dept].iloc[0, 1:])
+                try:
+                    constr_jk[j, :] = list(dfConstrInfo[dfConstrInfo['科室'] == dept].iloc[0, 1:])
+                except IndexError:
+                    dept = df2ndSurgery.loc[j, '申请科室']
+                    try:
+                        constr_jk[j, :] = list(dfConstrInfo[dfConstrInfo['科室'] == dept].iloc[0, 1:])
+                    except IndexError:
+                        print("dept:" + dept + " do NOT have constr_jk")
 
             # 根据二轮手术信息计算time_j
             time_j[j] = float(df2ndSurgery.loc[j, '预估手术时长'])
@@ -852,10 +854,11 @@ class Schedule():
             date.year, date.month, date.day, 16, 30, 0).timestamp())
 
         for j in range(len(df2ndSurgery)):
-            # 因素：抢单失败次数
-            weight_j[j] += int(df2ndSurgery.loc[j, '抢单失败次数']) * 0.15
-            if int(df2ndSurgery.loc[j, '抢单失败次数']) >= 3:
-                weight_j[j] = 10
+            # 删除抢单失败这个因素
+            # # 因素：抢单失败次数
+            # weight_j[j] += int(df2ndSurgery.loc[j, '抢单失败次数']) * 0.15
+            # if int(df2ndSurgery.loc[j, '抢单失败次数']) >= 3:
+            #     weight_j[j] = 10
 
             # 因素：是否日间手术
             if df2ndSurgery.loc[j, '是否日间手术'] == '是':
@@ -912,10 +915,10 @@ class Schedule():
                 where pseudo_operation_data like '{}%' and application_number = '{}'  
                                 """.format((weight_j[j]), self.strf_date,
                                         set_j[j])
-            conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
-                                   user=os.environ.get('MYSQL_USERNAME', 'root'),
-                                   password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                   database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
+            conn = pymysql.connect(host=MYSQL_HOST,
+                                   user=MYSQL_USERNAME,
+                                   password=MYSQL_PASSWORD,
+                                   database=MYSQL_DATABASE, charset="utf8")
             cursor = conn.cursor()
             cursor.execute(sql)
             conn.commit()
@@ -1073,10 +1076,10 @@ class Schedule():
                                 where pseudo_operation_data like '{}%' and application_number = '{}'  
                                                 """.format((set_k[int(tempName[1])]), self.strf_date,
                                             set_j[int(tempName[0])])
-                conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
-                                       user=os.environ.get('MYSQL_USERNAME', 'root'),
-                                       password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                       database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
+                conn = pymysql.connect(host=MYSQL_HOST,
+                                       user=MYSQL_USERNAME,
+                                       password=MYSQL_PASSWORD,
+                                       database=MYSQL_DATABASE, charset="utf8")
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 conn.commit()
@@ -1112,7 +1115,6 @@ class Schedule():
                            arrange_operating_room_number as '安排手术间编号',
                            arrange_operating_number as '安排手术部',
                            arrange_operating_room as '安排手术间',
-                           number_failed_order_grabs as '抢单失败次数',
                            submission_time as '提交申请时间',
                            surgery as '是否日间手术',
                            robot as '机器人',
@@ -1176,24 +1178,20 @@ from operating_room_info
             listRoomInfo_tmp.append(tuple(item_data.values()))
         listRoomInfo = listRoomInfo_tmp
         # listRoomInfo = self.connBaseInfo.execute("select 手术间编号, 所属手术部, 真实名称 from 手术间表 ").fetchall()
-        logger = logging.getLogger("django.db.backends")
         for id, dept, room in listRoomInfo:
             # SQL = "update 手术申请信息 set 是否已安排 = '是', 安排手术部 = '%s', 安排手术间 = '%s' " \
             #       "where 安排手术间编号 = '%s' and 拟手术日期 = '%s'" % (dept, room, id, self.strf_date)
             # self.connSurgery.execute(SQL)
             # self.connSurgery.commit()
-            # logger.info(dept)
-            # logger.info(id)
-            # logger.info(self.strf_date)
             sql = """
                 update surgicalapplicationinfo_python
             set has_arranged = '是', arrange_operating_number = '{}', arrange_operating_room = '{}' 
             where arrange_operating_room_number = '{}' and pseudo_operation_data like '{}%' 
                             """.format(dept, room, id, self.strf_date)
-            conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'),
-                                   user=os.environ.get('MYSQL_USERNAME', 'root'),
-                                   password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'),
-                                   database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
+            conn = pymysql.connect(host=MYSQL_HOST,
+                                   user=MYSQL_USERNAME,
+                                   password=MYSQL_PASSWORD,
+                                   database=MYSQL_DATABASE, charset="utf8")
             cursor = conn.cursor()
             cursor.execute(sql)
             conn.commit()

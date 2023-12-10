@@ -2,6 +2,9 @@ import sqlite3
 import pymysql
 import os
 
+from c2matica_py_server.settings import MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DATABASE
+
+
 def do_refresh_surgery(fresh_date):
     sql = """
     update surgicalapplicationinfo_python
@@ -13,7 +16,7 @@ set whether_operating = '',
     arrange_operating_room = ''
 where pseudo_operation_data like '{}%'
                 """.format(fresh_date)
-    conn = pymysql.connect(host=os.environ.get('MYSQL_HOST', '192.170.201.161'), user=os.environ.get('MYSQL_USERNAME', 'root'), password=os.environ.get('MYSQL_PASSWORD', 'C2matica!'), database=os.environ.get('MYSQL_DATABASE', 'abc'), charset="utf8")
+    conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USERNAME, password=MYSQL_PASSWORD, database=MYSQL_DATABASE, charset="utf8")
     cursor = conn.cursor()
     cursor.execute(sql)
     conn.commit()
