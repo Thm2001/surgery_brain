@@ -11,8 +11,23 @@ from common.sql_util import *
 import pymysql
 import os
 import logging
+import hashlib
+
+
 class Schedule():
-    def __init__(self, shedule_date="20220319"):
+    def __init__(self, shedule_date="2022-03-19", input_saving=False):
+        """
+
+        :param shedule_date: 用于测试的算例日期
+        :param input_saving: 是否保存输入数据，默认为False
+        """
+
+        self.logger = logging.getLogger(__name__)
+        # set a logging file handler and using the time stamp as the file name
+        logging.basicConfig(level=logging.DEBUG, filename='logs/schedule.log', filemode='w',
+                            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        self.input_saving = input_saving
+
         self.WEIGHT_SPECIAL_SURGERY = 10
 
         self.date = datetime.datetime.strptime(shedule_date, "%Y-%m-%d")
@@ -20,13 +35,12 @@ class Schedule():
         # assert self.date.weekday() in [0, 1, 2, 3, 4]
         path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         # self.engineBaseInfo = create_engine('sqlite:////root/project/surgery-brain/surgery_brain/Data/DataBase/BaseInfo.db')
-        self.engineBlock = create_engine('sqlite:///'+path+'/surgery_brain/Data/DataBase/Block.db')
+        self.engineBlock = create_engine('sqlite:///' + path + '/surgery_brain/Data/DataBase/Block.db')
         # self.engineSurgery = create_engine('sqlite:////root/project/surgery-brain/surgery_brain/Data/DataBase/Surgery.db')
 
         # self.connBaseInfo = sqlite3.connect('/root/project/surgery-brain/surgery_brain/Data/DataBase/BaseInfo.db')
-        self.connBlock = sqlite3.connect(path+'/surgery_brain/Data/DataBase/Block.db')
+        self.connBlock = sqlite3.connect(path + '/surgery_brain/Data/DataBase/Block.db')
         # self.connSurgery = sqlite3.connect('/root/project/surgery-brain/surgery_brain/Data/DataBase/Surgery.db')
-
 
         self.__drop_blocks()
         self.__fetch_block_table_names()
@@ -37,7 +51,6 @@ class Schedule():
             strWeekday = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][self.date.weekday()]
             strHalfYear = '1-6月' if self.date.month <= 6 else '7-12月'
 
-
             # 如果是周六周日 需要获取映射,无映射抛异常
             if "星期六" == strWeekday or strWeekday == "星期日":
                 sql = """
@@ -47,11 +60,10 @@ class Schedule():
                             where od.date = '{}'
                             """.format(self.strf_date)
                 temp_data = query_all_dict(sql)
+                if self.input_saving:
+                    self.__saving_query_result(sql=sql, queried=temp_data)
                 mapping_date = pd.DataFrame(temp_data)
-                # print(mapping_date)
                 strWeekday = mapping_date["week"][0]
-
-
 
             sql = """
             select 
@@ -77,11 +89,10 @@ class Schedule():
             where od.week = '{}'
               and od.half_year = '{}'
             """.format(strWeekday, strHalfYear)
-            print('pre_first_schedule:sql------------------')
-            print(sql)
             temp_data = query_all_dict(sql)
-            print('pre_first_schedule:data------------------')
-            print(temp_data)
+            if self.input_saving:
+                self.__saving_query_result(sql=sql, queried=temp_data)
+
             self._dfBlock = pd.DataFrame(temp_data)
 
             self.dfBlock = pd.DataFrame(columns=['手术间编号', '医生', '科室', '次排医生'])
@@ -150,11 +161,11 @@ class Schedule():
                         where surgeon = '{}'
                           and pseudo_operation_data like '{}%'
                         """.format(doctor, self.strf_date)
-            print('do_first_schedule:sql ----------------')
-            print(sql)
+
             temp_data = query_all_dict(sql)
-            print('do_first_schedule:data ----------------')
-            print(temp_data)
+            if self.input_saving:
+                self.__saving_query_result(sql=sql, queried=temp_data)
+
             listEntry_tmp = []
             for item_data in temp_data:
                 listEntry_tmp.append(tuple(item_data.values()))
@@ -242,6 +253,8 @@ class Schedule():
                         order by ori.id asc
                         """.format((listEntry[i][3]))
                     temp_data = query_all_dict(sql)
+                    if self.input_saving:
+                        self.__saving_query_result(sql=sql, queried=temp_data)
                     roomid = temp_data[0]['id']
                     # self.connSurgery.execute("update 手术申请信息 set 安排手术间编号 = '%s' "
                     #                          "where 申请号 = '%s' and 拟手术日期 = '%s'"
@@ -287,7 +300,8 @@ class Schedule():
                                         update surgicalapplicationinfo_python
                                     set arrange_operating_room_number = '{}'
                                     where application_number = '{}' and pseudo_operation_data like '{}%'
-                                                    """.format(listRoomID[TotalnumBlock - numBlock], listID[i], self.strf_date)
+                                                    """.format(listRoomID[TotalnumBlock - numBlock], listID[i],
+                                                               self.strf_date)
                 conn = pymysql.connect(host=MYSQL_HOST,
                                        user=MYSQL_USERNAME,
                                        password=MYSQL_PASSWORD,
@@ -311,7 +325,8 @@ class Schedule():
                                                         update surgicalapplicationinfo_python
                                                     set arrange_operating_room_number = '{}'
                                                     where application_number = '{}' and pseudo_operation_data like '{}%'
-                                                                    """.format(listRoomID[-1], listID[-1], self.strf_date)
+                                                                    """.format(listRoomID[-1], listID[-1],
+                                                                               self.strf_date)
                 conn = pymysql.connect(host=MYSQL_HOST,
                                        user=MYSQL_USERNAME,
                                        password=MYSQL_PASSWORD,
@@ -390,6 +405,8 @@ class Schedule():
             from surgicalapplicationinfo_python
                     """
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
         # pd.DataFrame(temp_data, dtype=str).to_csv(save_file)
         return temp_data
 
@@ -485,6 +502,9 @@ class Schedule():
                     where pseudo_operation_data like '{}%' and has_arranged = '是'
                             """.format(self.strf_date)
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
+
         df1stSurgery = pd.DataFrame(temp_data, dtype=str)
         sql = """
                                     select 
@@ -549,6 +569,9 @@ class Schedule():
                             where pseudo_operation_data like '{}%' and has_arranged != '是'
                                     """.format(self.strf_date)
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
+
         df2ndSurgery = pd.DataFrame(temp_data, dtype=str)
         # df2ndSurgery = pd.read_sql_query(
         #     'select * from 手术申请信息 '
@@ -619,6 +642,9 @@ class Schedule():
                                     where pseudo_operation_data like '{}%' 
                                             """.format(self.strf_date)
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
+
         dfAllSurgery = pd.DataFrame(temp_data, dtype=str)
 
         # 根据二轮手术信息构建set_i、set_j、set_k
@@ -630,6 +656,9 @@ class Schedule():
             order by id
                 """
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
+
         set_k = []
         for item in temp_data:
             set_k.append(str(item['id']))
@@ -648,10 +677,13 @@ class Schedule():
                     order by ori.id
                     """
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
+
         family_names = []
         for family_name_item in temp_data:
             family_names.append(family_name_item['科室'])
-        # dfConstrInfo = pd.DataFrame(temp_data, dtype=str)
+
         dict = {"科室": list(set(family_names))}
         for kitem in set_k:
             dict[kitem] = []
@@ -674,8 +706,6 @@ class Schedule():
                     dict[kitem].append(0)
         dfConstrInfo = pd.DataFrame(dict)
 
-
-
         # dfSpecialConstrInfo = pd.read_sql_query(
         #     'select * from 特殊手术约束表', self.engineBaseInfo)
         sql = """select ssi.mapping_surgical_coding as '映射手术编码',
@@ -686,6 +716,9 @@ class Schedule():
             order by ssi.id
         """
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
+
         # dfSpecialConstrInfo = pd.DataFrame(temp_data)
         mapping_surgical_codings = []
         for mapping_surgical_coding in temp_data:
@@ -718,12 +751,13 @@ class Schedule():
                                       and ssi.mapping_surgical_coding = '{}'
                                     order by ssi.id
                                 """.format(kitem, index)
-                    temp_data = query_all_dict(sql)
                     if temp_data:
                         dict[kitem].append(temp_data[0]['whether_can_operation'])
                     else:
                         dict[kitem].append(0)
         dfSpecialConstrInfo = pd.DataFrame(dict)
+        if self.input_saving:
+            pass
 
         # 根据一轮和二轮手术信息构建set_m
         set_m = dfAllSurgery['医生科室'].unique().tolist()
@@ -914,7 +948,7 @@ class Schedule():
                 set second_round_scheduling_weight = '{}'
                 where pseudo_operation_data like '{}%' and application_number = '{}'  
                                 """.format((weight_j[j]), self.strf_date,
-                                        set_j[j])
+                                           set_j[j])
             conn = pymysql.connect(host=MYSQL_HOST,
                                    user=MYSQL_USERNAME,
                                    password=MYSQL_PASSWORD,
@@ -1075,7 +1109,7 @@ class Schedule():
                                 set arrange_operating_room_number = '{}'
                                 where pseudo_operation_data like '{}%' and application_number = '{}'  
                                                 """.format((set_k[int(tempName[1])]), self.strf_date,
-                                            set_j[int(tempName[0])])
+                                                           set_j[int(tempName[0])])
                 conn = pymysql.connect(host=MYSQL_HOST,
                                        user=MYSQL_USERNAME,
                                        password=MYSQL_PASSWORD,
@@ -1154,6 +1188,9 @@ class Schedule():
                     from surgicalapplicationinfo_python
                             """
         temp_data = query_all_dict(sql)
+        if self.input_saving:
+            self.__saving_query_result(sql=sql, queried=temp_data)
+
         # pd.DataFrame(temp_data, dtype=str).to_csv(save_file)
         return temp_data
 
@@ -1170,8 +1207,7 @@ class Schedule():
     def do_confirm_room(self):
         sql = """
             select id as '手术间编号', operating_department as '所属手术部', real_name as '真实名称' 
-from operating_room_info
-        """
+            from operating_room_info"""
         temp_data = query_all_dict(sql)
         listRoomInfo_tmp = []
         for item_data in temp_data:
@@ -1197,3 +1233,14 @@ from operating_room_info
             conn.commit()
             cursor.close()
             conn.close()
+
+    def __saving_query_result(self, sql, queried):
+        try:
+            saving_df = pd.DataFrame(queried)
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            self.logger.info("after query:" + sql)
+            self.logger.info("save it to:" + timestamp + ".csv")
+            saving_df.to_csv("./logs/" + timestamp + ".csv", index=False)
+        except Exception as e:
+            self.logger.error(e)
+            self.logger.error("saving query result failed")
