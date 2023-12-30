@@ -11,21 +11,28 @@ from common.sql_util import *
 import pymysql
 import os
 import logging
-import hashlib
 
 
 class Schedule():
-    def __init__(self, shedule_date="2022-03-19", input_saving=False):
+    def __init__(self, shedule_date="2022-03-19", input_saving=True):
         """
 
         :param shedule_date: 用于测试的算例日期
         :param input_saving: 是否保存输入数据，默认为False
         """
 
-        self.logger = logging.getLogger(__name__)
-        # set a logging file handler and using the time stamp as the file name
-        logging.basicConfig(level=logging.DEBUG, filename='logs/schedule.log', filemode='w',
+        self.logger = logging.getLogger()
+        # set a logging file handler and using the time stamp as the file name also enable the console output
+        str_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+        logging.basicConfig(level=logging.INFO, filename='./schedule' + str_time + '.log', filemode='w',
                             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console.setFormatter(formatter)
+        self.logger.addHandler(console)
+        self.logger.info("Schedule initializing...")
+
         self.input_saving = input_saving
 
         self.WEIGHT_SPECIAL_SURGERY = 10
@@ -44,6 +51,8 @@ class Schedule():
 
         self.__drop_blocks()
         self.__fetch_block_table_names()
+
+        self.logger.info("Schedule initialized")
 
     def pre_first_schedule(self):
         # step1:确认当天手术日分配,假设护士长不做调整
@@ -751,6 +760,7 @@ class Schedule():
                                       and ssi.mapping_surgical_coding = '{}'
                                     order by ssi.id
                                 """.format(kitem, index)
+                    temp_data = query_all_dict(sql)
                     if temp_data:
                         dict[kitem].append(temp_data[0]['whether_can_operation'])
                     else:
