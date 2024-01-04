@@ -74,7 +74,7 @@ WSGI_APPLICATION = 'c2matica_py_server.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
-MYSQL_DATABASE = 'zhihuishoshudanao'
+MYSQL_DATABASE = 'abc'
 MYSQL_USERNAME = 'root'
 MYSQL_PASSWORD = 'C2matica!'
 MYSQL_HOST = '192.170.201.161'
