@@ -10,27 +10,17 @@ from c2matica_py_server.settings import MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWO
 from common.sql_util import *
 import pymysql
 import os
-import logging
+from common.logger import Logger
 
 
 class Schedule():
-    def __init__(self, shedule_date="2022-03-19", input_saving=True):
+    def __init__(self, shedule_date, input_saving=True):
         """
-
         :param shedule_date: 用于测试的算例日期
         :param input_saving: 是否保存输入数据，默认为False
         """
 
-        self.logger = logging.getLogger()
-        # set a logging file handler and using the time stamp as the file name also enable the console output
-        str_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        logging.basicConfig(level=logging.INFO, filename='./schedule' + str_time + '.log', filemode='w',
-                            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        console = logging.StreamHandler()
-        console.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        console.setFormatter(formatter)
-        self.logger.addHandler(console)
+        self.logger = Logger(__name__).get_logger()
         self.logger.info("Schedule initializing...")
 
         self.input_saving = input_saving
