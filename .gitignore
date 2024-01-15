@@ -39,3 +39,6 @@ build/
 ## log files ###
 *.log
 log.txt
+
+## .spec files ###
+*.spec

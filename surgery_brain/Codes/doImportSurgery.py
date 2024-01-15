@@ -4,12 +4,10 @@ import datetime
 import numpy as np
 import time
 from sqlalchemy import create_engine
-
+from common.logger import Logger
 from c2matica_py_server.settings import MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DATABASE
 from common.sql_util import *
 import os
-import pymysql
-import logging
 
 pd.set_option("display.max_columns", None)
 
@@ -43,15 +41,6 @@ TABLE_HEADER = [
     '透视',  # perspective
     '钬激光'  # holmium_laser
 ]
-
-
-def doGetSurgery(fileName):
-    df = pd.read_csv(fileName + '.csv', dtype=str)
-    print('表头：')
-    print(df.columns)
-    print('\n表格：')
-    print(df)
-    return df
 
 
 def doPreprocessSurgery(df):
@@ -98,46 +87,46 @@ def doPreprocessSurgery(df):
 
 
 def doCheckSpecialSurgery(df):
-#     sql = """select
-#        ssr.mapping_surgical_coding as '映射手术编码',
-#        ssr.mapping_name as '映射名称',
-#        ssr.operation_type as '手术类型',
-#        ssr.operating_room1  as '1',
-#        ssr.operating_room2 as '2',
-#        ssr.operating_room3 as '3',
-#        ssr.operating_room4 as '4',
-#        ssr.operating_room5 as '5',
-#        ssr.operating_room6 as '6',
-#        ssr.operating_room7 as '7',
-#        ssr.operating_room8 as '8',
-#        ssr.operating_room9 as '9',
-#        ssr.operating_room10 as '10',
-#        ssr.operating_room11 as '11',
-#        ssr.operating_room12 as '12',
-#        ssr.operating_room13 as '13',
-#        ssr.operating_room14 as '14',
-#        ssr.operating_room15 as '15',
-#        ssr.operating_room16 as '16',
-#        ssr.operating_room17 as '17',
-#        ssr.operating_room18 as '18',
-#        ssr.operating_room19 as '19',
-#        ssr.operating_room20 as '20',
-#        ssr.operating_room21 as '21',
-#        ssr.operating_room22 as '22',
-#        ssr.operating_room23 as '23',
-#        ssr.operating_room24 as '24',
-#        ssr.operating_room25 as '25',
-#        ssr.operating_room26 as '26',
-#        ssr.operating_room27 as '27',
-#        ssr.operating_room28 as '28',
-#        ssr.operating_room29 as '29',
-#        ssr.operating_room30  as '30'
-# from special_surgical_restraint ssr
-# """
+    #     sql = """select
+    #        ssr.mapping_surgical_coding as '映射手术编码',
+    #        ssr.mapping_name as '映射名称',
+    #        ssr.operation_type as '手术类型',
+    #        ssr.operating_room1  as '1',
+    #        ssr.operating_room2 as '2',
+    #        ssr.operating_room3 as '3',
+    #        ssr.operating_room4 as '4',
+    #        ssr.operating_room5 as '5',
+    #        ssr.operating_room6 as '6',
+    #        ssr.operating_room7 as '7',
+    #        ssr.operating_room8 as '8',
+    #        ssr.operating_room9 as '9',
+    #        ssr.operating_room10 as '10',
+    #        ssr.operating_room11 as '11',
+    #        ssr.operating_room12 as '12',
+    #        ssr.operating_room13 as '13',
+    #        ssr.operating_room14 as '14',
+    #        ssr.operating_room15 as '15',
+    #        ssr.operating_room16 as '16',
+    #        ssr.operating_room17 as '17',
+    #        ssr.operating_room18 as '18',
+    #        ssr.operating_room19 as '19',
+    #        ssr.operating_room20 as '20',
+    #        ssr.operating_room21 as '21',
+    #        ssr.operating_room22 as '22',
+    #        ssr.operating_room23 as '23',
+    #        ssr.operating_room24 as '24',
+    #        ssr.operating_room25 as '25',
+    #        ssr.operating_room26 as '26',
+    #        ssr.operating_room27 as '27',
+    #        ssr.operating_room28 as '28',
+    #        ssr.operating_room29 as '29',
+    #        ssr.operating_room30  as '30'
+    # from special_surgical_restraint ssr
+    # """
     sql = """select ssi.mapping_surgical_coding as '映射手术编码' 
-from special_surgical_restraint ssr
-         left join special_surgical_info ssi on ssr.special_id = ssi.id
-    """
+    from special_surgical_restraint ssr
+             left join special_surgical_info ssi on ssr.special_id = ssi.id
+        """
     temp_data = query_all_dict(sql)
     dfConstr = pd.DataFrame(temp_data)
     listSurgeryCode = dfConstr['映射手术编码'].values.tolist()
@@ -151,12 +140,12 @@ from special_surgical_restraint ssr
 
 def doCheckDept(df):
     sql = """
-    select 
-       di.doctor as '医生',
-       di.department as '科室',
-       di.subordinate_medical_unit as '所属医疗组'
-from doctor_info di
-"""
+        select 
+           di.doctor as '医生',
+           di.department as '科室',
+           di.subordinate_medical_unit as '所属医疗组'
+    from doctor_info di
+    """
     temp_data = query_all_dict(sql)
     dfDoctor = pd.DataFrame(temp_data)
     for i in range(len(df)):
@@ -226,71 +215,69 @@ def doGenerateAdditionalData(df):
     return df
 
 
-def doImportSurgery(df,date):
-
-
+def doImportSurgery(df, date):
     sql = """
     select pseudo_operation_data,
-       application_number,
-       hospital_serial_number,
-       admission_number,
-       patient_name,
-       operation_type,
-       surgeon,
-       doctor_department,
-       apply_department,
-       operation_name,
-       surgical_coding,
-       estimated_duration_operation,
-       table_sequence,
-       mode_anesthesia,
-       whether_operating,
-       whether_special_operation,
-       has_arranged,
-       second_round_scheduling_weight,
-       arrange_operating_room_number,
-       arrange_operating_number,
-       arrange_operating_room,
-      -- number_failed_order_grabs,
-       submission_time,
-       surgery,
-       robot,
-       interventional_operation,
-       perspective,
-       holmium_laser,
-       select_operating_room1,
-       select_operating_room2,
-       select_operating_room3,
-       select_operating_room4,
-       select_operating_room5,
-       select_operating_room6,
-       select_operating_room7,
-       select_operating_room8,
-       select_operating_room9,
-       select_operating_room10,
-       select_operating_room11,
-       select_operating_room12,
-       select_operating_room13,
-       select_operating_room14,
-       select_operating_room15,
-       select_operating_room16,
-       select_operating_room17,
-       select_operating_room18,
-       select_operating_room19,
-       select_operating_room20,
-       select_operating_room21,
-       select_operating_room22,
-       select_operating_room23,
-       select_operating_room24,
-       select_operating_room25,
-       select_operating_room26,
-       select_operating_room27,
-       select_operating_room28,
-       select_operating_room29,
-       select_operating_room30
-from surgicalapplicationinfo
-where pseudo_operation_data like '{}%'
-    """.format(date)
+           application_number,
+           hospital_serial_number,
+           admission_number,
+           patient_name,
+           operation_type,
+           surgeon,
+           doctor_department,
+           apply_department,
+           operation_name,
+           surgical_coding,
+           estimated_duration_operation,
+           table_sequence,
+           mode_anesthesia,
+           whether_operating,
+           whether_special_operation,
+           has_arranged,
+           second_round_scheduling_weight,
+           arrange_operating_room_number,
+           arrange_operating_number,
+           arrange_operating_room,
+          -- number_failed_order_grabs,
+           submission_time,
+           surgery,
+           robot,
+           interventional_operation,
+           perspective,
+           holmium_laser,
+           select_operating_room1,
+           select_operating_room2,
+           select_operating_room3,
+           select_operating_room4,
+           select_operating_room5,
+           select_operating_room6,
+           select_operating_room7,
+           select_operating_room8,
+           select_operating_room9,
+           select_operating_room10,
+           select_operating_room11,
+           select_operating_room12,
+           select_operating_room13,
+           select_operating_room14,
+           select_operating_room15,
+           select_operating_room16,
+           select_operating_room17,
+           select_operating_room18,
+           select_operating_room19,
+           select_operating_room20,
+           select_operating_room21,
+           select_operating_room22,
+           select_operating_room23,
+           select_operating_room24,
+           select_operating_room25,
+           select_operating_room26,
+           select_operating_room27,
+           select_operating_room28,
+           select_operating_room29,
+           select_operating_room30
+    from surgicalapplicationinfo
+    where pseudo_operation_data like '{}%'
+        """.format(date)
     data = pd.DataFrame(query_all_dict(sql), dtype=str)
 
     conn = create_engine('mysql://' +
@@ -298,7 +285,7 @@ where pseudo_operation_data like '{}%'
                          ':' +
                          MYSQL_PASSWORD +
                          '@' +
-                         MYSQL_HOST +':'+os.environ.get('MYSQL_PORT', '3306')+'/' +
+                         MYSQL_HOST + ':' + os.environ.get('MYSQL_PORT', '3306') + '/' +
                          MYSQL_DATABASE +
                          '?charset=utf8')
 
@@ -325,7 +312,7 @@ where pseudo_operation_data like '{}%'
         'arrange_operating_room_number',
         'arrange_operating_number',
         'arrange_operating_room',
-        #'number_failed_order_grabs',
+        # 'number_failed_order_grabs',
         'surgery',
         'robot',
         'interventional_operation',
@@ -413,25 +400,12 @@ def do_import_surgery(date):
             ORDER BY
                 sip.ELECTR_REQUISITION_NO
             """.format(date)
-    print(sql)
+
     temp_data = query_all_dict(sql)
     surgeryTable = pd.DataFrame(temp_data, dtype=str)
-    print('表头：')
-    print(surgeryTable.columns)
-    print('\n表格：')
-    print(surgeryTable)
-
     surgeryTable = surgeryTable[surgeryTable["手术室"].isin(["第一手术部", "第二手术部", "日间手术室"])]
     surgeryTable = doPreprocessSurgery(surgeryTable)
     surgeryTable = doCheckSpecialSurgery(surgeryTable)
     surgeryTable = doCheckDept(surgeryTable)
     surgeryTable = doGenerateAdditionalData(surgeryTable)
-    doImportSurgery(surgeryTable,date)
-
-
-# if __name__ == '__main__':
-#     INPUT_PATH = "../Input/"
-#     FILE_NAME = '20220329'
-#     do_import_surgery(file_path=INPUT_PATH + FILE_NAME + ".csv",
-#                       surgery_db_file='../Data/DataBase/Surgery.db',
-#                       baseinfo_db_file='../Data/DataBase/BaseInfo.db')
+    doImportSurgery(surgeryTable, date)

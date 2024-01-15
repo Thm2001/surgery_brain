@@ -1237,7 +1237,7 @@ class Schedule():
     def __saving_query_result(self, sql, queried):
         try:
             saving_df = pd.DataFrame(queried)
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
             self.logger.info("after query:" + sql)
             self.logger.info("save it to:" + timestamp + ".csv")
             saving_df.to_csv("./logs/" + timestamp + ".csv", index=False)
