@@ -27,6 +27,8 @@ def get_first_schedule(request):
         logger.info("do first schedule")
         result.append(my_schedule.do_first_schedule())
 
+        logger.info("first schedule is done")
+        logger.info("first schedule result: " + str(result))
         return HttpResponse(json.dumps(result))
     return HttpResponse("请求错误")
 
@@ -50,5 +52,7 @@ def get_sec_schedule(request):
         logger.info("do sec schedule")
         result.append(my_schedule.do_sec_schedule())
 
+        logger.info("sec schedule is done")
+        logger.info("sec schedule result: " + str(result))
         return HttpResponse(json.dumps(result))
     return HttpResponse("请求错误")
