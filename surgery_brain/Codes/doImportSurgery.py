@@ -78,11 +78,11 @@ def doPreprocessSurgery(df):
         _str = _str.split('-')[0]
         newdf.loc[row, '预估手术时长'] = _str
 
-    newdf.drop_duplicates(subset=['申请号'], keep='first', inplace=True, ignore_index=True)
-    # 删除申请号重复的行
+    # newdf.drop_duplicates(subset=['申请号'], keep='first', inplace=True, ignore_index=True)
+    # # 删除申请号重复的行
 
-    print('经过预处理的表格：111111111111')
-    print(newdf)
+    # print('经过预处理的表格：111111111111')
+    # print(newdf)
     return newdf
 
 
@@ -133,53 +133,61 @@ def doCheckSpecialSurgery(df):
     for i in range(len(df)):
         if df.loc[i, '手术编码'] in listSurgeryCode:
             df.loc[i, '是否为特殊手术'] = '是'
-    print('经过预处理的表格：22222222222222')
-    print(df)
+    # print('经过预处理的表格：22222222222222')
+    # print(df)
     return df
 
 
-def doCheckDept(df):
-    sql = """
-        select 
-           di.doctor as '医生',
-           di.department as '科室',
-           di.subordinate_medical_unit as '所属医疗组'
-    from doctor_info di
-    """
-    temp_data = query_all_dict(sql)
-    dfDoctor = pd.DataFrame(temp_data)
-    for i in range(len(df)):
-        doctor = df.loc[i, '主刀医生']
-        if dfDoctor[dfDoctor['医生'] == doctor].empty:
-            print('医生：' + doctor + ' 不在医生信息表里！')
-            continue
-        df.loc[i, '医生科室'] = dfDoctor[dfDoctor['医生'] == doctor].iloc[0].at['科室']
-        # if df.loc[i, '医生科室'] == '胸外科':
-        #     df.loc[i, '主刀医生'] = df.loc[i, '台序'][0]
-    df = df[~(df['申请科室'] == '眼科') & ~(df['申请科室'] == 'EICU') & ~(df['申请科室'] == 'CICU') &
-            ~(df['申请科室'] == '胆胰内科') & ~(df['申请科室'] == '烧伤整形外科') & ~(df['申请科室'] == 'RICU') &
-            ~(df['申请科室'] == '肛肠科') & ~(df['申请科室'] == '介入放射科') & ~(df['申请科室'] == '临床心理科') &
-            ~(df['申请科室'] == '神经内科503')]
-
-    # del some dept and doc's application
-    # available_doc_list = pd.read_sql_query("select * from 医生信息表", engine)["医生"].to_list()
-    available_doc_list = [item["医生"] for item in temp_data if "医生" in item]
-    # available_dept_list = pd.read_sql_query("select * from 手术间约束表", engine)["科室"].to_list()
-    available_dept_list = [item["科室"] for item in temp_data if "科室" in item]
-
-    myfilter = df["主刀医生"].isin(available_doc_list) & df["医生科室"].isin(available_dept_list) & df["申请科室"].isin(
-        available_dept_list)
-    print("this surgery has been dropped!")
-    print(df[~myfilter])
-
-    df = df[myfilter]
-
-    # 删除眼科的手术申请
-    df.reset_index(drop=True, inplace=True)
-    print('经过预处理的表格：33333333333333333')
-    print(df)
-    return df
-
+#
+# def doCheckDept(df):
+#     logger = Logger(__name__).get_logger()
+#     logger.info("start doCheckDept")
+#
+#     sql = """
+#         select
+#            di.doctor as '医生',
+#            di.department as '科室',
+#            di.subordinate_medical_unit as '所属医疗组'
+#     from doctor_info di
+#     """
+#     temp_data = query_all_dict(sql)
+#     dfDoctor = pd.DataFrame(temp_data)
+#     for i in range(len(df)):
+#         doctor = df.loc[i, '主刀医生']
+#         if dfDoctor[dfDoctor['医生'] == doctor].empty:
+#             print('医生：' + doctor + ' 不在医生信息表里！')
+#             continue
+#         df.loc[i, '医生科室'] = dfDoctor[dfDoctor['医生'] == doctor].iloc[0].at['科室']
+#
+#     """
+#     modify by haitao 2024-1-17
+#     科室约束应该不能按照排除的逻辑，而是正向选择的逻辑，以防后面出现一些新的之前不在排除清单里的科室。需要纳入待排集合的科室是：
+#     产科、妇科、耳鼻咽喉头颈外科、骨科关节、骨科脊柱、泌尿外科、胆胰外科、普外甲乳外科、胃肠中心109、胃肠中心209、胃肠中心309、
+#     胸外科、普外疝儿外科、肾脏内科、口腔科、创伤中心2、骨科创伤、骨科手足、普外血管外科、神经外科504、神经外科505、神经外科506、
+#     心脏大血管病中心、心内科206、心内科306、男科、运动医学科、肝脾外科
+#     """
+#     include_depts = ["产科", "妇科", "耳鼻咽喉头颈外科", "骨科关节", "骨科脊柱", "泌尿外科", "胆胰外科", "普外甲乳外科",
+#                      "胃肠中心109", "胃肠中心209", "胃肠中心309", "胸外科", "普外疝儿外科", "肾脏内科", "口腔科",
+#                      "创伤中心2", "骨科创伤", "骨科手足", "普外血管外科", "神经外科504", "神经外科505", "神经外科506",
+#                      "心脏大血管病中心", "心内科206", "心内科306", "男科", "运动医学科", "肝脾外科"]
+#     myfilter = df["申请科室"].isin(include_depts)
+#     logger.info("drop: %s", df[~myfilter])
+#     df = df[myfilter]
+#
+#     # del some  doc's application
+#     available_doc_list = [item["医生"] for item in temp_data if "医生" in item]
+#     myfilter = df["主刀医生"].isin(available_doc_list)
+#     logger.info("drop: %s", df[~myfilter])
+#     df = df[myfilter]
+#
+#     # del the 非择期
+#     myfilter = df["手术类别"].isin(["择期"])
+#     logger.info("drop: %s", df[~myfilter])
+#     df = df[myfilter]
+#
+#     df.reset_index(drop=True, inplace=True)
+#     return df
+#
 
 def doGenerateAdditionalData(df):
     # # 添加“抢单失败次数”字段
@@ -350,6 +358,10 @@ def doImportSurgery(df, date):
         'select_operating_room29',
         'select_operating_room30'
     ]
+    logger = Logger(__name__).get_logger()
+    logger.info("data: %s", data)
+    logger.info("df: %s", df)
+
     if data.size != 0:
         data.to_sql('surgicalapplicationinfo_python', conn, if_exists='replace', index=False)
     df.to_sql('surgicalapplicationinfo_python', conn, if_exists='replace', index=False)
@@ -361,51 +373,67 @@ def doImportSurgery(df, date):
 def do_import_surgery(date):
     # surgeryTable = pd.read_csv(file_path, dtype=str)
     sql = """
-            SELECT
-                sip.ELECTR_REQUISITION_NO AS '申请号',
-                sip.INHOSP_NO AS '住院流水号',
-                sip.INHOSP_INDEX_NO AS '住院号',
-                sip.SURGERY_PAT_RESOURCE_NAME AS '类别',
-                sip.PAT_NAME AS '姓名',
-                sip.PHYSI_SEX_NAME AS '性别',
-                sip.CURR_BED_NAME AS '床号',
-                di.department AS '申请科室',
-                sip.OPERATION_CATEGORY AS '手术类别',
-                sip.POSITION AS '部位',
-                sip.POSITION_NAME AS '部位名称',
-                sip.PRE_SURGERY_DIAG_NAME AS '诊断',
-                sip.OPERATION_PREFIX AS '手术前缀',
-                sip.SURGERY_OPER_NAME AS '手术名称',
-                sip.PRE_SURGERY_DIAG_CODE AS '手术编码3.0',
-                sip.OPERATION_SUFFIX AS '手术后缀',
-                di.doctor AS '手术者',
-                sip.ANES_METHOD_NAME AS '麻醉方式',
-                sip.SURGERY_TABLE_NO AS '台序',
-                REPLACE ( REPLACE ( sip.SURGERY_DATE, 'T', ' ' ), '-', '/' ) AS '拟手术日期',
-                sip.SURGERY_DEPT_NAME AS '手术室',
-                sip.SURGERY_LEVEL_NAME AS '手术级别',
-                sip.SURGERY_WOUND_CATEG_CODE AS '切口类型',
-                sip.SURGERY_DURATION AS '预估手术时长',
-                sip.surgery AS '是否日间手术',
-                sip.robot AS '机器人',
-                sip.interventional_operation AS '介入手术',
-                sip.perspective AS '透视',
-                sip.holmium_laser AS '钬激光' 
+            SELECT DISTINCT
+            sip.ELECTR_REQUISITION_NO AS '申请号',
+            sip.INHOSP_NO AS '住院流水号',
+            sip.INHOSP_INDEX_NO AS '住院号',
+            sip.SURGERY_PAT_RESOURCE_NAME AS '类别',
+            sip.PAT_NAME AS '姓名',
+            sip.PHYSI_SEX_NAME AS '性别',
+            sip.CURR_BED_NAME AS '床号',
+            sip.APPLY_DEPT_NAME AS '申请科室',
+            sip.OPERATION_CATEGORY AS '手术类别',
+            sip.POSITION AS '部位',
+            sip.POSITION_NAME AS '部位名称',
+            sip.PRE_SURGERY_DIAG_NAME AS '诊断',
+            sip.OPERATION_PREFIX AS '手术前缀',
+            sip.SURGERY_OPER_NAME AS '手术名称',
+            sip.PRE_SURGERY_DIAG_CODE AS '手术编码3.0',
+            sip.OPERATION_SUFFIX AS '手术后缀',
+            sip.SURGERY_DR_NAME AS '手术者',
+            sip.ANES_METHOD_NAME AS '麻醉方式',
+            sip.SURGERY_TABLE_NO AS '台序',
+            REPLACE(REPLACE(sip.SURGERY_DATE, 'T', ' '), '-', '/') AS '拟手术日期',
+            sip.SURGERY_DEPT_NAME AS '手术室',
+            sip.SURGERY_LEVEL_NAME AS '手术级别',
+            sip.SURGERY_WOUND_CATEG_CODE AS '切口类型',
+            sip.SURGERY_DURATION AS '预估手术时长',
+            sip.surgery AS '是否日间手术',
+            sip.robot AS '机器人',
+            sip.interventional_operation AS '介入手术',
+            sip.perspective AS '透视',
+            sip.holmium_laser AS '钬激光' 
             FROM
-                surgicalapplication_info_port sip 
-                inner join doctor_info di on di.doctor = sip.SURGERY_DR_NAME AND di.department = sip.APPLY_DEPT_NAME
+            surgicalapplication_info_port sip 
+            INNER JOIN doctor_info di ON di.doctor = sip.SURGERY_DR_NAME -- AND di.department = sip.APPLY_DEPT_NAME
             WHERE
-                sip.SURGERY_DATE LIKE '{}%' 
-                AND ( sip.scheduling_state = FALSE OR sip.scheduling_state IS NULL ) 
+            sip.SURGERY_DATE LIKE '{}%' 
+            AND (sip.scheduling_state = FALSE OR sip.scheduling_state IS NULL)
+            AND sip.SURGERY_DEPT_NAME IN ('第一手术部', '第二手术部', '日间手术室')
+            AND sip.APPLY_DEPT_NAME IN ('产科', '妇科', '耳鼻咽喉头颈外科', '骨科关节', '骨科脊柱', '泌尿外科', '胆胰外科', '普外甲乳外科',
+                                        '胃肠中心109', '胃肠中心209', '胃肠中心309', '胸外科', '普外疝儿外科', '肾脏内科', '口腔科',
+                                        '创伤中心2', '骨科创伤', '骨科手足', '普外血管外科', '神经外科504', '神经外科505', '神经外科506',
+                                        '心脏大血管病中心', '心内科206', '心内科306', '男科', '运动医学科', '肝脾外科')
             ORDER BY
-                sip.ELECTR_REQUISITION_NO
+            sip.ELECTR_REQUISITION_NO;  
             """.format(date)
 
+    logger = Logger(__name__).get_logger()
     temp_data = query_all_dict(sql)
+
     surgeryTable = pd.DataFrame(temp_data, dtype=str)
+    logger.info("surgeryTable: %s", surgeryTable)
+
     surgeryTable = surgeryTable[surgeryTable["手术室"].isin(["第一手术部", "第二手术部", "日间手术室"])]
+    logger.info("surgeryTable: %s", surgeryTable)
+
     surgeryTable = doPreprocessSurgery(surgeryTable)
+    logger.info("surgeryTable: %s", surgeryTable)
+
     surgeryTable = doCheckSpecialSurgery(surgeryTable)
-    surgeryTable = doCheckDept(surgeryTable)
+    logger.info("surgeryTable: %s", surgeryTable)
+
     surgeryTable = doGenerateAdditionalData(surgeryTable)
+    logger.info("surgeryTable: %s", surgeryTable)
+
     doImportSurgery(surgeryTable, date)
