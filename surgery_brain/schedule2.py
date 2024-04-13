@@ -30,6 +30,7 @@ class Schedule():
         self.__dept_seq_to_room_id = self.__get_dept_seq_to_room_id()
         self.doctor_workload = {}
         self.rooms = {}
+        self.rooms_info_dict = self.__get_room_info()
 
         self.logger.info("Schedule initialized")
 
@@ -262,15 +263,22 @@ class Schedule():
             self.doctor_workload[doctor] = 0.0
         return self.doctor_workload[doctor] > max_workload
 
-    def __check_room_overwork(self, room_id, max_workload=13.0):
+    def __get_room_workload(self, room_id, interval=0.5):
         """
         Get the room workload of the current day.
         :return:
         """
         total_duration = 0.0
         for application in self.rooms[room_id]:
-            total_duration += application['duration']
-        return total_duration > max_workload
+            total_duration += application['duration'] + interval
+        return total_duration
+
+    def __check_room_overwork(self, room_id, max_workload=13.0, interval=0.5):
+        """
+        Get the room workload of the current day.
+        :return:
+        """
+        return self.__get_room_workload(room_id, interval) > max_workload
 
     def __get_unarranged_applications(self):
         """
@@ -347,7 +355,7 @@ class Schedule():
 
             # self.logger.info("当前手术室的申请列表为{}".format(self.rooms[room_id]))
             self.logger.info("当前手术室的申请列表长度为{}".format(len(self.rooms[room_id])))
-            self.logger.info("当前手术室的占用时长为{}".format(sum([x['duration'] for x in self.rooms[room_id]])))
+            self.logger.info("当前手术室的占用时长为{}".format(self.__get_room_workload(room_id)))
 
             while self.__check_room_overwork(room_id):
                 self.logger.info("手术室{}已经超过工作量".format(room_id))
@@ -359,12 +367,27 @@ class Schedule():
 
         self.logger.info("回写数据库")
         for room_id, applications in self.rooms.items():
+            operating_department = self.rooms_info_dict[room_id]["operating_department"]  # 手术部
+            real_name = self.rooms_info_dict[room_id]["real_name"]  # 真实名称
             for application in applications:
                 sql = """
-                    update surgicalapplicationinfo_python
-                set arrange_operating_room_number = '{}'
-                where application_number = '{}' and pseudo_operation_data like '{}%'
-                                """.format(room_id, application["id"], self.strf_date)
+                update 
+                    surgicalapplicationinfo_python
+                set 
+                    has_arranged = '是',
+                    arrange_operating_number = '{}',
+                    arrange_operating_room = '{}',
+                    arrange_operating_room_number = '{}',
+                    second_round_scheduling_weight = '{}'
+                where 
+                    application_number = '{}' and pseudo_operation_data like '{}%'
+                                """.format(operating_department,
+                                           real_name,
+                                           room_id,
+                                           application["weight"],
+                                           application["id"],
+                                           self.strf_date)
+
                 conn = pymysql.connect(host=MYSQL_HOST,
                                        user=MYSQL_USERNAME,
                                        password=MYSQL_PASSWORD,
@@ -374,52 +397,26 @@ class Schedule():
                 conn.commit()
                 cursor.close()
                 conn.close()
-        self.__finalize_surgical_application_info_python()
         self.logger.info("数据库回写成功")
-
         self.logger.info("Schedule runned")
 
-    def __finalize_surgical_application_info_python(self):
+    def __get_room_info(self):
         """
-        surgialapplicationinfo_python 中手术如果已经安排好手术间了的话，
-        会在arrange_operating_room_number字段写入手术间编号(i.e. 手术间变化，like 2,453)
-        此程序的作用查询operating_room_info表，将surigicalapplicationinfo_python表中的手术间编号
-        转换为所属手术部和真实名称，然后写入arrange_operating_number(e.g. 第一手术部)和arrange_operating_room字段(e.g. 02)
+        Get the room info from the database.
+        and return a dict with room_id as key and room info as value.
+        room info is a dict with op_dept and r_name as key.
+        :return:
         """
-
+        result = {}
         sql = """
-            select id as '手术间编号', operating_department as '所属手术部', real_name as '真实名称' 
-            from operating_room_info"""
-        temp_data = query_all_dict(sql)
-        listRoomInfo_tmp = []
-        for item_data in temp_data:
-            listRoomInfo_tmp.append(tuple(item_data.values()))
-        listRoomInfo = listRoomInfo_tmp
-        # listRoomInfo = self.connBaseInfo.execute("select 手术间编号, 所属手术部, 真实名称 from 手术间表 ").fetchall()
-        for id, dept, room in listRoomInfo:
-            # SQL = "update 手术申请信息 set 是否已安排 = '是', 安排手术部 = '%s', 安排手术间 = '%s' " \
-            #       "where 安排手术间编号 = '%s' and 拟手术日期 = '%s'" % (dept, room, id, self.strf_date)
-            # self.connSurgery.execute(SQL)
-            # self.connSurgery.commit()
-            sql = """
-                update surgicalapplicationinfo_python
-            set has_arranged = '是', arrange_operating_number = '{}', arrange_operating_room = '{}' 
-            where arrange_operating_room_number = '{}' and pseudo_operation_data like '{}%' 
-                            """.format(dept, room, id, self.strf_date)
-            conn = pymysql.connect(host=MYSQL_HOST,
-                                   user=MYSQL_USERNAME,
-                                   password=MYSQL_PASSWORD,
-                                   database=MYSQL_DATABASE, charset="utf8")
-            cursor = conn.cursor()
-            cursor.execute(sql)
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-# if __name__ == '__main__':
-#     schedule = Schedule("2024-04-11")
-#     # print(schedule.weekday)
-#     # print(schedule.strf_date)
-#     # print(schedule.date)
-#
-#     print(schedule.get_room_id_and_weight("产科", "Axx"))
+            select 
+                  id,
+                  operating_department,
+                  real_name
+            from 
+                operating_room_info
+        """
+        for row in query_all_dict(sql):
+            result[row["id"]] = {"operating_department": row["operating_department"],
+                                 "real_name": row["real_name"]}
+        return result
