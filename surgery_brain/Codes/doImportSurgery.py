@@ -272,8 +272,7 @@ def doImportSurgery(df, date):
         'select_operating_room30'
     ]
     logger = Logger(__name__).get_logger()
-    logger.info("data: %s", data)
-    logger.info("df: %s", df)
+    logger.info("df shape:{}".format(df.shape))
 
     if data.size != 0:
         data.to_sql('surgicalapplicationinfo_python', conn, if_exists='replace', index=False)
