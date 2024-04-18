@@ -87,42 +87,6 @@ def doPreprocessSurgery(df):
 
 
 def doCheckSpecialSurgery(df):
-    #     sql = """select
-    #        ssr.mapping_surgical_coding as '映射手术编码',
-    #        ssr.mapping_name as '映射名称',
-    #        ssr.operation_type as '手术类型',
-    #        ssr.operating_room1  as '1',
-    #        ssr.operating_room2 as '2',
-    #        ssr.operating_room3 as '3',
-    #        ssr.operating_room4 as '4',
-    #        ssr.operating_room5 as '5',
-    #        ssr.operating_room6 as '6',
-    #        ssr.operating_room7 as '7',
-    #        ssr.operating_room8 as '8',
-    #        ssr.operating_room9 as '9',
-    #        ssr.operating_room10 as '10',
-    #        ssr.operating_room11 as '11',
-    #        ssr.operating_room12 as '12',
-    #        ssr.operating_room13 as '13',
-    #        ssr.operating_room14 as '14',
-    #        ssr.operating_room15 as '15',
-    #        ssr.operating_room16 as '16',
-    #        ssr.operating_room17 as '17',
-    #        ssr.operating_room18 as '18',
-    #        ssr.operating_room19 as '19',
-    #        ssr.operating_room20 as '20',
-    #        ssr.operating_room21 as '21',
-    #        ssr.operating_room22 as '22',
-    #        ssr.operating_room23 as '23',
-    #        ssr.operating_room24 as '24',
-    #        ssr.operating_room25 as '25',
-    #        ssr.operating_room26 as '26',
-    #        ssr.operating_room27 as '27',
-    #        ssr.operating_room28 as '28',
-    #        ssr.operating_room29 as '29',
-    #        ssr.operating_room30  as '30'
-    # from special_surgical_restraint ssr
-    # """
     sql = """select ssi.mapping_surgical_coding as '映射手术编码' 
     from special_surgical_restraint ssr
              left join special_surgical_info ssi on ssr.special_id = ssi.id
@@ -137,57 +101,6 @@ def doCheckSpecialSurgery(df):
     # print(df)
     return df
 
-
-#
-# def doCheckDept(df):
-#     logger = Logger(__name__).get_logger()
-#     logger.info("start doCheckDept")
-#
-#     sql = """
-#         select
-#            di.doctor as '医生',
-#            di.department as '科室',
-#            di.subordinate_medical_unit as '所属医疗组'
-#     from doctor_info di
-#     """
-#     temp_data = query_all_dict(sql)
-#     dfDoctor = pd.DataFrame(temp_data)
-#     for i in range(len(df)):
-#         doctor = df.loc[i, '主刀医生']
-#         if dfDoctor[dfDoctor['医生'] == doctor].empty:
-#             print('医生：' + doctor + ' 不在医生信息表里！')
-#             continue
-#         df.loc[i, '医生科室'] = dfDoctor[dfDoctor['医生'] == doctor].iloc[0].at['科室']
-#
-#     """
-#     modify by haitao 2024-1-17
-#     科室约束应该不能按照排除的逻辑，而是正向选择的逻辑，以防后面出现一些新的之前不在排除清单里的科室。需要纳入待排集合的科室是：
-#     产科、妇科、耳鼻咽喉头颈外科、骨科关节、骨科脊柱、泌尿外科、胆胰外科、普外甲乳外科、胃肠中心109、胃肠中心209、胃肠中心309、
-#     胸外科、普外疝儿外科、肾脏内科、口腔科、创伤中心2、骨科创伤、骨科手足、普外血管外科、神经外科504、神经外科505、神经外科506、
-#     心脏大血管病中心、心内科206、心内科306、男科、运动医学科、肝脾外科
-#     """
-#     include_depts = ["产科", "妇科", "耳鼻咽喉头颈外科", "骨科关节", "骨科脊柱", "泌尿外科", "胆胰外科", "普外甲乳外科",
-#                      "胃肠中心109", "胃肠中心209", "胃肠中心309", "胸外科", "普外疝儿外科", "肾脏内科", "口腔科",
-#                      "创伤中心2", "骨科创伤", "骨科手足", "普外血管外科", "神经外科504", "神经外科505", "神经外科506",
-#                      "心脏大血管病中心", "心内科206", "心内科306", "男科", "运动医学科", "肝脾外科"]
-#     myfilter = df["申请科室"].isin(include_depts)
-#     logger.info("drop: %s", df[~myfilter])
-#     df = df[myfilter]
-#
-#     # del some  doc's application
-#     available_doc_list = [item["医生"] for item in temp_data if "医生" in item]
-#     myfilter = df["主刀医生"].isin(available_doc_list)
-#     logger.info("drop: %s", df[~myfilter])
-#     df = df[myfilter]
-#
-#     # del the 非择期
-#     myfilter = df["手术类别"].isin(["择期"])
-#     logger.info("drop: %s", df[~myfilter])
-#     df = df[myfilter]
-#
-#     df.reset_index(drop=True, inplace=True)
-#     return df
-#
 
 def doGenerateAdditionalData(df):
     # # 添加“抢单失败次数”字段
@@ -422,18 +335,16 @@ def do_import_surgery(date):
     temp_data = query_all_dict(sql)
 
     surgeryTable = pd.DataFrame(temp_data, dtype=str)
-    logger.info("surgeryTable: %s", surgeryTable)
-
-    surgeryTable = surgeryTable[surgeryTable["手术室"].isin(["第一手术部", "第二手术部", "日间手术室"])]
-    logger.info("surgeryTable: %s", surgeryTable)
+    logger.info("surgeryTable shape:{}".format(surgeryTable.shape))
+    logger.info("申请号集合: {}".format(surgeryTable['申请号'].values.tolist()))
 
     surgeryTable = doPreprocessSurgery(surgeryTable)
-    logger.info("surgeryTable: %s", surgeryTable)
+    logger.info("surgeryTable shape:{}".format(surgeryTable.shape))
 
     surgeryTable = doCheckSpecialSurgery(surgeryTable)
-    logger.info("surgeryTable: %s", surgeryTable)
+    logger.info("surgeryTable shape:{}".format(surgeryTable.shape))
 
     surgeryTable = doGenerateAdditionalData(surgeryTable)
-    logger.info("surgeryTable: %s", surgeryTable)
+    logger.info("surgeryTable shape:{}".format(surgeryTable.shape))
 
     doImportSurgery(surgeryTable, date)
