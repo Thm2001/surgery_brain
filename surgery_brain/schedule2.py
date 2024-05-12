@@ -275,10 +275,10 @@ class Schedule():
 
     def __check_room_overwork(self, room_id, max_workload=13.0, interval=0.5):
         """
-        Get the room workload of the current day.
+        Get the room workload of the current day, noted the last application must end before 8:00 + 13:00 = 21:00
         :return:
         """
-        return self.__get_room_workload(room_id, interval) > max_workload
+        return self.__get_room_workload(room_id, interval) - interval > max_workload
 
     def __get_unarranged_applications(self):
         """
@@ -303,7 +303,8 @@ class Schedule():
             application = {'id': row['id'],
                            'doctor': row['doctor'],
                            'dept': row['dept'],
-                           'duration': float(row['duration']),
+                           'duration': round(row['duration']), # 向上取整
+                           # 'duration': float(row['duration']),
                            # 分解手术序列，A1->A,1
                            'seq_alphabet': row['seq'][0],
                            'seq_number': int(row['seq'][1:])
@@ -338,7 +339,10 @@ class Schedule():
                 continue
 
             weight = init_weight + 100 * (ord(application['seq_alphabet']) - ord('A')) + application['seq_number']
-            self.logger.info("当前申请对应的手术室为{}".format(room_id))
+            operating_department = self.rooms_info_dict[room_id]["operating_department"]
+            real_name = self.rooms_info_dict[room_id]["real_name"]
+
+            self.logger.info("当前申请对应的手术室为{}({},{})".format(room_id, operating_department, real_name))
             self.logger.info("当前申请的权重为{}".format(weight))
             application["weight"] = weight
 
@@ -349,11 +353,12 @@ class Schedule():
 
             self.logger.info("更新医生工作量")
             self.doctor_workload[application['doctor']] += application['duration']
+            self.logger.info("当前医生{}的工作量为{}".format(application['doctor'],
+                                                             self.doctor_workload[application['doctor']]))
 
             self.logger.info("基于权重排序")
             self.rooms[room_id].sort(key=lambda x: x['weight'])
 
-            # self.logger.info("当前手术室的申请列表为{}".format(self.rooms[room_id]))
             self.logger.info("当前手术室的申请列表长度为{}".format(len(self.rooms[room_id])))
             self.logger.info("当前手术室的占用时长为{}".format(self.__get_room_workload(room_id)))
 
@@ -364,6 +369,8 @@ class Schedule():
                 self.logger.info("删除的申请为{}".format(dropped_application))
                 self.logger.info("更新医生工作量")
                 self.doctor_workload[dropped_application['doctor']] -= dropped_application['duration']
+                self.logger.info("当前医生{}的工作量为{}".format(dropped_application['doctor'],
+                                                                 self.doctor_workload[dropped_application['doctor']]))
 
         self.logger.info("回写数据库")
         for room_id, applications in self.rooms.items():
