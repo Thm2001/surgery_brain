@@ -184,9 +184,7 @@ class Schedule():
                            'doctor': row['doctor'],
                            'dept': row['dept'],
 
-                            # 2024.5.19 下面改了改了改了！！！！！！！！！！！！！！！！！！！！！！
                            'duration': round(row['duration']), # 向上取整
-                            # 2024.5.19 上面改了改了改了！！！！！！！！！！！！！！！！！！！！！！
 
                            # 'duration': float(row['duration']),
                            # 分解手术序列，A1->A,1
@@ -228,9 +226,7 @@ class Schedule():
 
             self.logger.info("当前申请对应的手术室为{}({},{})".format(room_id, operating_department, real_name))
             self.logger.info("当前申请的权重为{}".format(weight))
-            # 2024.5.19 下面改了改了改了！！！！！！！！！！！！！！！！！！！！！！
             application["weight"] = int(weight)
-            # 2024.5.19 上面改了改了改了！！！！！！！！！！！！！！！！！！！！！！
 
 
             self.logger.info("加入到手术室中")
