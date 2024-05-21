@@ -56,11 +56,15 @@ class Schedule():
     def __get_dept_seq_to_room_id(self):
         # SQL 查询，使用LIKE进行模糊匹配并且指定星期
         sql = """
-                SELECT 
-                    ss.department as dept, 
-                    ss.surgery_room_sequence as seq_alphabet, 
-                    ri.id as room_id, 
-                    ss.remarks
+               SELECT 
+                    ss.department AS dept, 
+                    ss.surgery_room_sequence AS seq_alphabet, 
+                    ri.id AS room_id, 
+                    CASE
+                        WHEN ss.remarks LIKE '%优先排%' THEN 0
+                        WHEN ss.remarks LIKE '%往后排%' THEN 2000
+                        ELSE 1000
+                    END AS weight
                 FROM 
                     surgery_schedule ss
                 JOIN 
@@ -79,13 +83,13 @@ class Schedule():
         cursor = conn.cursor()
         cursor.execute(sql)
         result = cursor.fetchall()
+        conn.commit()
+        cursor.close()
+        conn.close()
 
-        # 将结果转换为DataFrame，并根据remarks设置权重
+        # 将结果转换为DataFrame
         if result:
             df = pd.DataFrame(result)
-            # 设置权重条件逻辑
-            df['weight'] = df['remarks'].apply(lambda x: 0 if '优先排' in x else (2000 if '往后排' in x else 1000))
-
             # 确保字段类型
             df['dept'] = df['dept'].astype(str)
             df['seq_alphabet'] = df['seq_alphabet'].astype(str)
@@ -99,12 +103,8 @@ class Schedule():
             df['room_id'] = df['room_id'].astype(int)
             df['weight'] = df['weight'].astype(int)
 
-        conn.commit()
-        cursor.close()
-        conn.close()
-
         self.logger.info("当前星期{},当前星期的手术室分配为:\n{}".format(self.weekday, df))
-        return df[['dept', 'seq_alphabet', 'room_id', 'weight']]
+        return df
 
     def __get_room_id_and_weight(self, dept, seq_alphabet):
         """
@@ -123,7 +123,7 @@ class Schedule():
             self.logger.info("当前科室{}当日没有对应的手术室".format(dept))
             return None, None
 
-        seq_df = seq_df.loc[seq_df["seq_alphabet"] == seq_alphabet]
+        seq_df = seq_df.loc[seq_df["seq_alphabet"].str.contains(seq_alphabet)]
         if seq_df.__len__() == 0:
             self.logger.info("当前科室{}{}当日没有对应的手术室".format(dept, seq_alphabet))
             return None, None
